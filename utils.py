@@ -8,6 +8,7 @@ Created on Tue Mar  7 10:04:03 2023
 import pandas as pd
 import numpy as np
 import re
+import os
 
 
 class MatchElo:
@@ -242,3 +243,157 @@ def get_player_points(df : pd.DataFrame = None):
         loser_scores.append(loser)
 
     return pd.Series(winner_scores), pd.Series(loser_scores)
+
+def load_atp_data():
+    """
+    
+
+    Returns
+    -------
+    df : a pandas dataframe containing lightly processed and de-duped ATP
+         match data from 2000-01-01 until present
+
+    """
+
+    folder = "./tennis_atp"
+
+    df = pd.DataFrame()
+
+    for file in os.listdir(f'{folder}'):
+
+        if file.endswith('csv') and '20' in file and 'doubles' not in file:
+            df_ = pd.read_csv(f'{folder}/{file}')
+            df = pd.concat([df, df_])
+            
+    round_dict = {
+        'RR': 0,
+        'ER': 0,
+        'BR': 0,
+        'Q1': 1,
+        'R128': 1,
+        'Q2': 2,
+        'R64': 2,
+        'Q3': 3,
+        'R32': 3,
+        'R16': 4,
+        'QF': 5,
+        'Q4': 5,
+        'SF': 6,
+        'F': 7
+    }
+
+    df = df[df['winner_name'].apply(lambda x: isinstance(x, str))].copy()
+    df = df[df['loser_name'].apply(lambda x: isinstance(x, str))].copy()
+    df = df[~df['winner_name'].str.contains('Unknown')].copy()
+    df = df[~df['loser_name'].str.contains('Unknown')].copy()
+    df = df[df['winner_name'] != df['loser_name']].copy()
+
+    df.dropna(subset='score', inplace=True)
+    df['retired'] = [1 if 'RET' in x else 0 for x in df.score]
+    df['walkover'] = [1 if 'W/O' in x else 0 for x in df.score]
+
+    # reformatting names to compare with betting data later
+    df['winner_initial'] = [x.split()[-1] + ' ' + x.split()[0][0] + '.' for x in df.winner_name]
+    df['loser_initial'] = [x.split()[-1] + ' ' + x.split()[0][0] + '.' for x in df.loser_name]
+
+    df['total_sets'] = [len(x.split()) if isinstance(x, str) else np.nan for x in df.score]
+
+    # extracting the points for each set using a custom function 
+    x, y = get_player_points(df=df)
+    df['winner_points'] = x
+    df['loser_points'] = y
+
+    df['round'] = df['round'].map(round_dict)
+    df['tourney_date'] = [str(x)[:4] + '-' + str(x)[4:6] + '-' + str(x)[6:8] for x in df.tourney_date]
+    df['tourney_date'] = pd.to_datetime(df['tourney_date'])
+    df['month'] = df.tourney_date.dt.month
+
+    df.sort_values(by=['tourney_date', 'tourney_id', 'round'],
+                   ascending=[True, True, True],
+                   inplace=True)
+
+    # calculating match statistics to later compute rolling statistics
+    df['w_2ndsvOpps'] = df['w_svpt'].sub(df['w_1stIn'])
+    df['l_2ndsvOpps'] = df['l_svpt'].sub(df['l_1stIn'])
+
+    df['w_1stReturnOpps'] = df['l_1stIn']
+    df['w_2ndReturnOpps'] = df['l_svpt'].sub(df['l_1stIn'])
+
+    df['w_1stReturnPts'] = df['l_1stIn'] - df['l_1stWon']
+    df['w_2ndReturnPts'] = df['l_2ndsvOpps'] - (df['l_2ndWon'] + df['l_df'])
+
+    df['l_1stReturnOpps'] = df['w_1stIn']
+    df['l_2ndReturnOpps'] = df['w_svpt'].sub(df['w_1stIn'])
+
+    df['l_1stReturnPts'] = df['w_1stIn'] - df['w_1stWon']
+    df['l_2ndReturnPts'] = df['w_2ndsvOpps'] - (df['w_2ndWon'] + df['w_df'])
+
+    df['w_bpOpps'] = df['l_bpFaced']
+    df['w_bpWon'] = df['l_bpFaced'] - df['l_bpSaved']
+
+    df['l_bpOpps'] = df['w_bpFaced']
+    df['l_bpWon'] = df['w_bpFaced'] - df['w_bpSaved']
+
+    print('shape before dropping match dupes:', df.shape)
+
+
+    df.drop_duplicates(subset=['winner_name', 'loser_name', 'tourney_id'],
+                       inplace=True)
+
+    print('shape after dropping match dupes:', df.shape)
+
+    df.reset_index(inplace=True, drop=True)
+    
+    return df
+
+
+def load_wta_data():
+    """
+
+    Returns
+    -------
+    df : a pandas dataframe containing lightly processed and de-duped
+         WTA match data from 2000-01-01 until the present
+    
+    """
+
+    folder = "./tennis_wta"
+
+    df = pd.DataFrame()
+
+    for file in os.listdir(f'{folder}'):
+
+        if file.endswith('csv') and '20' in file and 'doubles' not in file and '1920' not in file:
+
+            try:
+                df_ = pd.read_csv(f'{folder}/{file}', low_memory=False)
+                df = pd.concat([df, df_])
+
+            except:
+                df_ = pd.read_csv(f'{folder}\{file}',
+                                  encoding='latin-1', low_memory=False)
+                df = pd.concat([df, df_])
+
+    df = df[df['winner_name'].apply(lambda x: isinstance(x, str))].copy()
+    df = df[df['loser_name'].apply(lambda x: isinstance(x, str))].copy()
+    df = df[~df['winner_name'].str.contains('Unknown')].copy()
+    df = df[~df['loser_name'].str.contains('Unknown')].copy()
+    df = df[df['winner_name'] != df['loser_name']].copy()
+
+    df.sort_values(by=['tourney_date', 'tourney_id', 'round'],
+                   ascending=[True, True, True],
+                   inplace=True)
+
+    print('shape before dropping match dupes:', df.shape)
+
+    df.dropna(subset=['surface', 'winner_name', 'loser_name'],
+              inplace=True)
+
+    df.drop_duplicates(subset=['winner_name', 'loser_name', 'tourney_id'],
+                       inplace=True)
+
+    print('shape after dropping match dupes:', df.shape)
+
+    df.reset_index(inplace=True, drop=True)
+
+    return df

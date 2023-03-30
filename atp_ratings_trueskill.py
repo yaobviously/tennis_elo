@@ -4,45 +4,16 @@ Spyder Editor
 
 This is a temporary script file.
 """
-
-import os
 import pandas as pd
 import pickle
 
 from trueskillthroughtime import History, Player, Gaussian
+from utils import load_atp_data
 
-folder = "C:/Users/yaobv/tennis_project/tennis_atp"
-
-df = pd.DataFrame()
-
-for file in os.listdir(f'{folder}'):
-
-    if file.endswith('csv') and '20' in file and 'doubles' not in file:
-        df_ = pd.read_csv(f'{folder}/{file}')
-        df = pd.concat([df, df_])
-
-
-df = df[df['winner_name'].apply(lambda x: isinstance(x, str))].copy()
-df = df[df['loser_name'].apply(lambda x: isinstance(x, str))].copy()
-df = df[~df['winner_name'].str.contains('Unknown')].copy()
-df = df[~df['loser_name'].str.contains('Unknown')].copy()
-df = df[df['winner_name'] != df['loser_name']].copy()
-
-df.sort_values(by=['tourney_date', 'tourney_id', 'round'],
-               ascending=[True, True, True],
-               inplace=True)
-
-print('shape before dropping match dupes:', df.shape)
-
-
-df.drop_duplicates(subset=['winner_name', 'loser_name', 'tourney_id'],
-                   inplace=True)
-
-print('shape after dropping match dupes:', df.shape)
-
-df.reset_index(inplace=True, drop=True)
+df = load_atp_data()
 
 # figuring out how to do it set by set instead of match by match
+# requires dropping nans from score and excluding >3 set matches
 
 df.dropna(subset='score', inplace=True)
 
