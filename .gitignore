@@ -3,3 +3,9 @@
 
 # women's tennis data
 /tennis_wta
+
+# checkpoints
+.ipynb_checkpoints/
+
+# pychache
+/__pycache__
