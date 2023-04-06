@@ -4,6 +4,7 @@ Spyder Editor
 
 This is a temporary script file.
 """
+
 import pandas as pd
 import pickle
 
@@ -12,76 +13,80 @@ from utils import load_atp_data
 
 df = load_atp_data()
 
-# figuring out how to do it set by set instead of match by match
-# requires dropping nans from score and excluding >3 set matches
+def main():
 
-df.dropna(subset='score', inplace=True)
+    # loading the atp data
+    df = load_atp_data()
+    print("loading the data")
+    # figuring out how to do it set by set instead of match by match
+    # requires dropping nans from score and excluding >3 set matches
 
-df['match_length'] = [len(x.split(' ')) for x in df.score]
-df = df[df['match_length'] <=3].copy()
+    df.dropna(subset='score', inplace=True)
 
-list_for_df = []
+    df['match_length'] = [len(x.split(' ')) for x in df.score]
+    df = df[df['match_length'] <= 3].copy()
 
-for x, y, z in zip(df.winner_name, df.loser_name, df.match_length):
+    list_for_df = []
 
-    if z == 2:
-        list_for_df.append([x, y])
-        list_for_df.append([x, y])
-    else:
-        list_for_df.append([x, y])
-        list_for_df.append([y, x])
-        list_for_df.append([x, y])
+    for x, y, z in zip(df.winner_name, df.loser_name, df.match_length):
 
-new_df = pd.DataFrame.from_records(
-    list_for_df, columns=['winner_name', 'loser_name'])
+        if z == 2:
+            list_for_df.append([x, y])
+            list_for_df.append([x, y])
+        else:
+            list_for_df.append([x, y])
+            list_for_df.append([y, x])
+            list_for_df.append([x, y])
 
-# creating the trueskill dictionary
+    # creating the trueskill dictionary
+    print("preparing the true skill model")
+    columns = zip(df.winner_name, df.loser_name, df.surface)
 
-columns = zip(df.winner_name, df.loser_name, df.surface)
+    composition = [[[winner, winner + surface], [loser, loser + surface]]
+                   for winner, loser, surface in columns]
 
-composition = [[[winner, winner + surface], [loser, loser + surface]]
-               for winner, loser, surface in columns]
+    all_atp_players = set([val for sublist in zip(
+        df.winner_name, df.loser_name) for val in sublist])
 
-all_atp_players = set([val for sublist in zip(
-    df.winner_name, df.loser_name) for val in sublist])
+    # defining the prior ratings. values are from the optimization
+    # noetbook
+    priors = dict([(p, Player(Gaussian(0., 1.51), 1.5, 0.098))
+                  for p in all_atp_players])
 
-priors = dict([(p, Player(Gaussian(0., 1.51), 1.5, 0.098))
-              for p in all_atp_players])
+    # doing a first pass with TrueSkill. params from the optimization
+    # notebook
+    true_skill_history_priors = History(composition=composition,
+                                        priors=priors,
+                                        beta=0,
+                                        sigma=0.5,
+                                        gamma=0.01)
 
-true_skill_history_priors = History(composition=composition,
-                                    priors=priors,
-                                    beta=0,
-                                    sigma=0.5,
-                                    gamma=0.01)
+    # running the TrueSkillThroughTime algorithm
+    true_skill_history_priors.convergence(epsilon=0.01, iterations=10)
 
-# running the TTT algo 
+    # creating the dictionaries of player names and ratings
+    # the big dict contains the entire skill history of each player
+    mens_big_dict = true_skill_history_priors.learning_curves()
 
-true_skill_history_priors.convergence(epsilon=0.01, iterations=10)
+    # the small dict contains only the most recent skill rating
+    mens_small_dict = dict()
 
-# creating the dictionary of player names
+    for key in mens_big_dict.keys():
+        if key not in mens_small_dict:
+            mens_small_dict[key] = mens_big_dict[key][-1]
+            
+    return mens_big_dict, mens_small_dict, all_atp_players
 
-mens_big_dict = true_skill_history_priors.learning_curves()
+if __name__ == '__main__':
+    a, b, c = main()
 
-mens_small_dict = dict()
-
-for key in mens_big_dict.keys():
-    if key not in mens_small_dict:
-        mens_small_dict[key] = mens_big_dict[key][-1]
-
-# getting a list of players from the ts dictionary. this can be improved
-# trivially tbh
-
-atp_players = list(
-    set([val for sublist in zip(df.winner_name, df.loser_name) for val in sublist]))
-
-
-# saving the files needed using pickle
-
-with open('mens_big_dict.pickle', 'wb') as handle:
-    pickle.dump(mens_big_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    
-with open('mens_small_dict.pickle', 'wb') as handle2:
-    pickle.dump(mens_small_dict, handle2, protocol=pickle.HIGHEST_PROTOCOL)
-    
-with open('mens_names.pickle', 'wb') as file:
-    pickle.dump(atp_players, file, protocol=pickle.HIGHEST_PROTOCOL)
+    # saving the files needed using pickle
+    print("finally saving the dictionary files")
+    with open('final_ratings/mens_big_dict.pickle', 'wb') as handle:
+        pickle.dump(a, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        
+    with open('final_ratings/mens_small_dict.pickle', 'wb') as handle2:
+        pickle.dump(b, handle2, protocol=pickle.HIGHEST_PROTOCOL)
+        
+    with open('final_ratings/mens_names.pickle', 'wb') as file:
+        pickle.dump(c, file, protocol=pickle.HIGHEST_PROTOCOL)

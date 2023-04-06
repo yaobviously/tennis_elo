@@ -244,7 +244,7 @@ def get_player_points(df : pd.DataFrame = None):
 
     return pd.Series(winner_scores), pd.Series(loser_scores)
 
-def load_atp_data():
+def load_atp_data(folder_path='./tennis_atp'):
     """
     
 
@@ -255,7 +255,7 @@ def load_atp_data():
 
     """
 
-    folder = "./tennis_atp"
+    folder = folder_path
 
     df = pd.DataFrame()
 
@@ -347,7 +347,7 @@ def load_atp_data():
     return df
 
 
-def load_wta_data():
+def load_wta_data(folder_path="./tennis_wta"):
     """
 
     Returns
@@ -357,7 +357,7 @@ def load_wta_data():
     
     """
 
-    folder = "./tennis_wta"
+    folder = folder_path
 
     df = pd.DataFrame()
 
