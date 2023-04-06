@@ -26,7 +26,7 @@ class MatchElo:
         self.loser_elo = []
         self.winner_probs = []
 
-    def update_elo(self, winner='Rafael Nadal', loser='Pete Sampras'):
+    def update_elo(self, winner=None, loser=None):
 
         prematch_winner_elo = self.elo_dict[winner]
         prematch_loser_elo = self.elo_dict[loser]
@@ -145,6 +145,8 @@ class SetsElo:
 
 def elo_predict(elo_a=1500, elo_b=1500):
     
+    "returns the win probability of elo_a given elo_a and elo_b"
+    
     prob_a = 1 / (1 + 10 ** ((elo_b - elo_a)/400))
 
     return prob_a
@@ -165,6 +167,22 @@ def last_with_nan(series):
     return val if val else np.nan
 
 def process_match_stats(df : pd.DataFrame, window : int = 20):
+    """
+    Converts player match stats into rolling match statistics
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The dataframe containing match results
+    window : int, optional
+        The size of the rolling window.
+
+    Returns
+    -------
+    stats_df : pd.DataFrame
+        Each player's rolling statistics at the date of the match
+
+    """
     
     winner_df = df[['winner_name', 'tourney_date', 'tourney_id', 'round', 'total_sets',
                'w_ace', 'w_df', 'w_svpt', 'w_1stIn', 'w_1stWon', 'w_2ndWon',
@@ -221,6 +239,12 @@ def process_match_stats(df : pd.DataFrame, window : int = 20):
 
 
 def get_player_points(df : pd.DataFrame = None):
+    """
+    Converts the raw set scores into cumulative match points.
+    Note this function only needs df.score and should therefore
+    be modified.
+
+    """
 
     winner_scores = []
     loser_scores = []

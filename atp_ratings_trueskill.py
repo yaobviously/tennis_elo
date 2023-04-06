@@ -11,13 +11,12 @@ import pickle
 from trueskillthroughtime import History, Player, Gaussian
 from utils import load_atp_data
 
-df = load_atp_data()
 
 def main():
 
     # loading the atp data
+    print("loading the atp data")
     df = load_atp_data()
-    print("loading the data")
     # figuring out how to do it set by set instead of match by match
     # requires dropping nans from score and excluding >3 set matches
 
@@ -62,6 +61,7 @@ def main():
                                         gamma=0.01)
 
     # running the TrueSkillThroughTime algorithm
+    print("running the ttt algorithm. please wait 10-15 minutes.")
     true_skill_history_priors.convergence(epsilon=0.01, iterations=10)
 
     # creating the dictionaries of player names and ratings
@@ -81,7 +81,7 @@ if __name__ == '__main__':
     a, b, c = main()
 
     # saving the files needed using pickle
-    print("finally saving the dictionary files")
+    print("saving the atp ratings to the final_ratings folder")
     with open('final_ratings/mens_big_dict.pickle', 'wb') as handle:
         pickle.dump(a, handle, protocol=pickle.HIGHEST_PROTOCOL)
         
