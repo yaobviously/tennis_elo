@@ -82,7 +82,6 @@ class SetsElo:
 
         exp_a = 1 / \
             (1 + 10 ** ((prematch_loser_elo - prematch_winner_elo)/400))
-        exp_b = 1 - exp_a
 
         return exp_a
 
@@ -238,7 +237,7 @@ def process_match_stats(df : pd.DataFrame, window : int = 20):
     return stats_df
 
 
-def get_player_points(df : pd.DataFrame = None):
+def get_player_sets_won(df : pd.DataFrame = None):
     """
     Converts the raw set scores into cumulative match points.
     Note this function only needs df.score and should therefore
@@ -323,7 +322,7 @@ def load_atp_data(folder_path='./tennis_atp'):
     df['total_sets'] = [len(x.split()) if isinstance(x, str) else np.nan for x in df.score]
 
     # extracting the points for each set using a custom function 
-    x, y = get_player_points(df=df)
+    x, y = get_player_sets_won(df=df)
     df['winner_points'] = x
     df['loser_points'] = y
 
